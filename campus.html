@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campus Life — Satwik Mahapatra</title>
+<meta name="description" content="Glimpses of life on campus at IISc Bengaluru.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%234A2C7A'/%3E%3Ccircle cx='12' cy='12' r='3.6' fill='%23C24E78'/%3E%3C/svg%3E">
+</head>
+<body>
+<header id="site-nav"></header>
+<main>
+  <section class="section" style="padding-bottom:1.4rem">
+    <div class="wrap">
+      <span class="eyebrow reveal">Fig. 06 — Field notes</span>
+      <h1 class="reveal d1" style="margin:.6rem 0">Campus Life</h1>
+      <p class="lead reveal d1" style="max-width:56ch">The other half of the picture — mornings on the main building lawns, monsoon over the canopy, and the long evenings that research actually runs on. Click any image to enlarge.</p>
+    </div>
+  </section>
+  <section class="section" style="padding-top:.4rem">
+    <div class="wrap">
+      <div class="masonry" id="gallery"></div>
+    </div>
+  </section>
+</main>
+<div class="lightbox" id="lightbox"><button class="lightbox-close" id="lbClose" aria-label="Close">&times;</button><img id="lbImg" alt=""></div>
+<footer id="site-footer"></footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+const KEY = "campus";
+
+function render() {
+  const items = DataStore.list(KEY);
+  const g = document.getElementById("gallery");
+  g.innerHTML = items.map((it, i) => `
+    <figure class="reveal d${(i%4)+1}" data-id="${it.id}">
+      <div class="card-admin">
+        <button class="icon-btn" data-act="edit" aria-label="Edit">${I.edit}</button>
+        <button class="icon-btn danger" data-act="del" aria-label="Delete">${I.trash}</button>
+      </div>
+      <div class="g-media" data-act="zoom">${mediaHTML(it.src, it.id)}</div>
+      <figcaption>${escapeHTML(it.caption || "")}</figcaption>
+    </figure>`).join("") || `<p class="hint">No photos yet. Enter edit mode to add your first one.</p>`;
+
+  g.querySelectorAll("figure").forEach(fig => {
+    fig.querySelector('[data-act="edit"]').addEventListener("click", e => { e.stopPropagation(); editItem(fig.dataset.id); });
+    fig.querySelector('[data-act="del"]').addEventListener("click", e => { e.stopPropagation(); delItem(fig.dataset.id); });
+    fig.querySelector('[data-act="zoom"]').addEventListener("click", () => openLightbox(fig.dataset.id));
+  });
+  observeNewReveals();
+}
+
+function openLightbox(id) {
+  if (document.body.classList.contains("editing")) return; // don't zoom while editing
+  const it = DataStore.find(KEY, id);
+  const lb = document.getElementById("lightbox"), img = document.getElementById("lbImg");
+  if (it.src) { img.src = it.src; img.style.display = "block"; }
+  else {
+    // render the generative placeholder big inside the lightbox
+    img.style.display = "none";
+    let holder = document.getElementById("lbSvg");
+    if (!holder) { holder = document.createElement("div"); holder.id = "lbSvg"; holder.style.cssText = "max-width:92vw;max-height:86vh;width:680px"; img.parentNode.insertBefore(holder, img); }
+    holder.innerHTML = placeholderSVG(it.id, 680, 460);
+  }
+  img.alt = it.caption || "";
+  lb.classList.add("open");
+}
+function closeLightbox() { document.getElementById("lightbox").classList.remove("open"); const h = document.getElementById("lbSvg"); if (h) h.innerHTML = ""; }
+
+function itemFields(it = {}) {
+  return [
+    { name: "caption", label: "Caption", type: "text", value: it.caption, placeholder: "Where / when / what" },
+    { name: "src", label: "Photo", type: "image", value: it.src, hint: "Paste an image URL, or upload (kept in your browser until you Export). Large photos: host them and paste a link." }
+  ];
+}
+function valsToItem(v, existingId) { return { id: existingId || ("g-" + Date.now()), caption: v.caption, src: v.src }; }
+
+async function addItem() {
+  const v = await openModal({ title: "Add a photo", fields: itemFields(), submitLabel: "Add photo" });
+  if (!v) return;
+  DataStore.data.campus = DataStore.data.campus || [];
+  DataStore.data.campus.unshift(valsToItem(v));
+  DataStore.persistLocal();
+  render(); toast("Photo added — Export to publish");
+}
+async function editItem(id) {
+  const it = DataStore.find(KEY, id);
+  const v = await openModal({ title: "Edit photo", fields: itemFields(it), submitLabel: "Save changes" });
+  if (!v) return;
+  DataStore.upsert(KEY, valsToItem(v, id));
+  render(); toast("Saved locally — Export to publish");
+}
+function delItem(id) {
+  const it = DataStore.find(KEY, id);
+  if (confirm(`Delete this photo${it.caption ? ` (“${it.caption}”)` : ""}?`)) { DataStore.remove(KEY, id); render(); toast("Deleted locally"); }
+}
+
+window.PageAdmin = { addLabel: "Photo", add: addItem };
+
+boot(() => {
+  render();
+  document.getElementById("lbClose").addEventListener("click", closeLightbox);
+  document.getElementById("lightbox").addEventListener("click", e => { if (e.target.id === "lightbox") closeLightbox(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeLightbox(); });
+});
+</script>
+</body>
+</html>

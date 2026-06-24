@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact — Satwik Mahapatra</title>
+<meta name="description" content="Get in touch with Satwik Mahapatra.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%234A2C7A'/%3E%3Ccircle cx='12' cy='12' r='3.6' fill='%23C24E78'/%3E%3C/svg%3E">
+</head>
+<body>
+<header id="site-nav"></header>
+<main>
+  <section class="section" style="padding-bottom:1.2rem">
+    <div class="wrap">
+      <span class="eyebrow reveal">Fig. 07 — Get in touch</span>
+      <h1 class="reveal d1" style="margin:.6rem 0">Contact</h1>
+      <p class="lead reveal d1" id="blurb" data-editable="contact.blurb" style="max-width:58ch"></p>
+    </div>
+  </section>
+  <section class="section" style="padding-top:.4rem">
+    <div class="wrap">
+      <div class="contact-grid">
+        <div class="reveal d1">
+          <form id="contactForm" novalidate>
+            <div class="field">
+              <label for="cName">Your name</label>
+              <input type="text" id="cName" name="name" placeholder="Jane Researcher" required>
+            </div>
+            <div class="field">
+              <label for="cEmail">Your email</label>
+              <input type="email" id="cEmail" name="email" placeholder="you@example.com" required>
+            </div>
+            <div class="field">
+              <label for="cMsg">Message</label>
+              <textarea id="cMsg" name="message" placeholder="What would you like to talk about?" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" id="cSend">Send message</button>
+            <p class="form-status" id="cStatus" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+        <aside class="reveal d2">
+          <div class="detail-card" id="detailCard"></div>
+          <div id="detailEditWrap" style="margin-top:1rem;display:none">
+            <button class="btn btn-ghost" id="editDetails">Edit all contact details</button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+</main>
+<footer id="site-footer"></footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+const SUBMIT_KEY = "satwik_contact_submissions";
+
+function rows() {
+  const c = DataStore.data.contact;
+  const r = [];
+  if (c.email)    r.push({ k:"email",    ico:I.mail,     label:"Email",    val:c.email,    href:"mailto:"+c.email });
+  if (c.phone)    r.push({ k:"phone",    ico:I.phone,    label:"Phone",    val:c.phone,    href:"tel:"+c.phone.replace(/\s+/g,"") });
+  if (c.linkedin) r.push({ k:"linkedin", ico:I.linkedin, label:"LinkedIn", val:c.linkedin, href:c.linkedin });
+  if (c.github)   r.push({ k:"github",   ico:I.github,   label:"GitHub",   val:c.github,   href:c.github });
+  if (c.twitter)  r.push({ k:"twitter",  ico:I.twitter,  label:"X / Twitter", val:c.twitter, href:c.twitter });
+  if (c.location) r.push({ k:"location", ico:I.pin,      label:"Location", val:c.location, href:null });
+  return r;
+}
+
+function renderCard() {
+  const card = document.getElementById("detailCard");
+  card.innerHTML = rows().map(row => {
+    const icoEl = row.href
+      ? `<a class="ico" href="${escapeAttr(row.href)}" target="_blank" rel="noopener" aria-label="${row.label}">${row.ico}</a>`
+      : `<span class="ico">${row.ico}</span>`;
+    return `<div class="detail-row">
+      ${icoEl}
+      <div>
+        <div class="label">${row.label}</div>
+        <div class="value" data-editable="contact.${row.k}">${escapeHTML(row.val)}</div>
+      </div>
+    </div>`;
+  }).join("");
+  // if edit mode is already on, make freshly-rendered values editable
+  if (document.body.classList.contains("editing")) {
+    card.querySelectorAll("[data-editable]").forEach(el => {
+      el.setAttribute("contenteditable", "true");
+      el.addEventListener("blur", onEditableBlur);
+    });
+  }
+}
+
+function fields() {
+  const c = DataStore.data.contact;
+  return [
+    { name:"blurb",    label:"Intro blurb",      type:"textarea", value:c.blurb },
+    { name:"email",    label:"Email",            type:"text", value:c.email },
+    { name:"phone",    label:"Phone",            type:"text", value:c.phone },
+    { name:"linkedin", label:"LinkedIn URL",     type:"text", value:c.linkedin },
+    { name:"github",   label:"GitHub URL",       type:"text", value:c.github },
+    { name:"twitter",  label:"X / Twitter URL",  type:"text", value:c.twitter },
+    { name:"location", label:"Location",         type:"text", value:c.location },
+    { name:"formEndpoint", label:"Form endpoint (Formspree or your backend URL)", type:"text", value:c.formEndpoint,
+      hint:"Where the contact form delivers messages. Leave blank to use the email-client fallback. See README for setup." }
+  ];
+}
+async function editDetails() {
+  const v = await openModal({ title:"Contact details", intro:"These power the cards on the right and where the form sends messages.", fields:fields(), submitLabel:"Save details" });
+  if (!v) return;
+  Object.keys(v).forEach(k => DataStore.setField("contact."+k, v[k]));
+  document.getElementById("blurb").textContent = DataStore.data.contact.blurb || "";
+  renderCard(); toast("Contact details saved — Export to publish");
+}
+
+/* ---------- form submission ---------- */
+async function onSubmit(e) {
+  e.preventDefault();
+  const f = e.target, status = document.getElementById("cStatus"), btn = document.getElementById("cSend");
+  const name = f.name.value.trim(), email = f.email.value.trim(), message = f.message.value.trim();
+  status.className = "form-status";
+  if (!name || !email || !message) { status.textContent = "Please fill in every field."; status.classList.add("err"); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { status.textContent = "That email doesn't look right."; status.classList.add("err"); return; }
+
+  const endpoint = DataStore.data.contact.formEndpoint;
+  btn.disabled = true; status.textContent = "Sending…";
+
+  if (endpoint) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ name, email, message, _subject: `Site message from ${name}` })
+      });
+      if (res.ok) { status.textContent = "Thank you — your message was sent."; status.classList.add("ok"); f.reset(); }
+      else { throw new Error("bad status " + res.status); }
+    } catch (err) {
+      status.textContent = "Couldn't reach the server. Opening your email client instead…";
+      status.classList.add("err");
+      fallbackMailto(name, email, message);
+    }
+  } else {
+    // no endpoint configured: keep a local copy + hand off to the email client
+    saveLocal({ name, email, message, at: new Date().toISOString() });
+    fallbackMailto(name, email, message);
+    status.textContent = "Opening your email client to send… (a local copy was saved in this browser).";
+    status.classList.add("ok");
+    f.reset();
+  }
+  btn.disabled = false;
+}
+function saveLocal(entry) {
+  try { const arr = JSON.parse(localStorage.getItem(SUBMIT_KEY) || "[]"); arr.push(entry); localStorage.setItem(SUBMIT_KEY, JSON.stringify(arr)); } catch (_) {}
+}
+function fallbackMailto(name, email, message) {
+  const to = DataStore.data.contact.email || "";
+  const subject = encodeURIComponent(`Website message from ${name}`);
+  const body = encodeURIComponent(`${message}\n\n— ${name} (${email})`);
+  window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+}
+
+window.PageAdmin = null; // editing handled by the dedicated "Edit all details" button
+window.addEventListener("edit:on", () => { document.getElementById("detailEditWrap").style.display = "block"; });
+window.addEventListener("edit:off", () => { document.getElementById("detailEditWrap").style.display = "none"; });
+
+boot(() => {
+  document.getElementById("blurb").textContent = DataStore.data.contact.blurb || "";
+  document.getElementById("cSend").innerHTML = "Send message " + I.arrow;
+  document.getElementById("editDetails").innerHTML = I.edit + " Edit all contact details";
+  renderCard();
+  document.getElementById("contactForm").addEventListener("submit", onSubmit);
+  document.getElementById("editDetails").addEventListener("click", editDetails);
+  if (document.body.classList.contains("editing")) document.getElementById("detailEditWrap").style.display = "block";
+});
+</script>
+</body>
+</html>

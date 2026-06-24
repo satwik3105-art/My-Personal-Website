@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CV & Achievements — Satwik Mahapatra</title>
+<meta name="description" content="Academic timeline, achievements, and CV of Satwik Mahapatra.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%234A2C7A'/%3E%3Ccircle cx='12' cy='12' r='3.6' fill='%23C24E78'/%3E%3C/svg%3E">
+</head>
+<body>
+<header id="site-nav"></header>
+<main>
+  <section class="section" style="padding-bottom:1.4rem">
+    <div class="wrap">
+      <span class="eyebrow reveal">Fig. 05 — Curriculum vitae</span>
+      <h1 class="reveal d1" style="margin:.6rem 0">CV &amp; Academic Achievements</h1>
+      <p class="lead reveal d1" style="max-width:56ch">A running record of the milestones — coursework, projects, and the practices that shaped how I work. Read it top to bottom as a timeline.</p>
+      <div class="cv-actions reveal d2" id="cvActions" style="margin-top:1.4rem;display:flex;gap:.8rem;flex-wrap:wrap;align-items:center"></div>
+    </div>
+  </section>
+  <section class="section" style="padding-top:.4rem">
+    <div class="wrap">
+      <div class="timeline" id="timeline"></div>
+    </div>
+  </section>
+</main>
+<footer id="site-footer"></footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+const KEY = "cv";
+
+function render() {
+  const items = DataStore.list(KEY);
+  const tl = document.getElementById("timeline");
+  tl.innerHTML = items.map((c, i) => `
+    <div class="tl-item reveal d${(i%3)+1}" data-id="${c.id}">
+      <div class="tl-admin">
+        <button class="icon-btn" data-act="edit" aria-label="Edit">${I.edit}</button>
+        <button class="icon-btn danger" data-act="del" aria-label="Delete">${I.trash}</button>
+      </div>
+      <span class="tl-year">${escapeHTML(c.year || "")}</span>
+      <div class="tl-card">
+        <h3>${escapeHTML(c.title || "")}</h3>
+        <div class="tl-place">${escapeHTML(c.place || "")}</div>
+        <p>${escapeHTML(c.desc || "")}</p>
+      </div>
+    </div>`).join("") || `<p class="hint">No entries yet. Enter edit mode to add your first milestone.</p>`;
+  tl.querySelectorAll(".tl-item").forEach(el => {
+    el.querySelector('[data-act="edit"]').addEventListener("click", () => editItem(el.dataset.id));
+    el.querySelector('[data-act="del"]').addEventListener("click", () => delItem(el.dataset.id));
+  });
+  renderActions();
+  observeNewReveals();
+}
+
+function renderActions() {
+  const box = document.getElementById("cvActions");
+  const pdf = DataStore.data.cvPdf;
+  const editing = document.body.classList.contains("editing");
+  let html = "";
+  if (pdf) html += `<a class="btn btn-primary" href="${escapeAttr(pdf)}" download target="_blank" rel="noopener">${I.download} Download CV (PDF)</a>`;
+  else html += `<span class="hint" style="margin:0">No PDF attached yet.</span>`;
+  if (editing) html += `<button class="btn btn-ghost" id="setPdf">${I.doc} ${pdf ? "Replace" : "Add"} PDF version</button>`;
+  box.innerHTML = html;
+  document.getElementById("setPdf")?.addEventListener("click", setPdf);
+}
+
+function itemFields(c = {}) {
+  return [
+    { name: "year", label: "Year / period", type: "text", value: c.year, placeholder: "e.g. 2026 or 2025 – present" },
+    { name: "title", label: "Title", type: "text", value: c.title, placeholder: "What happened" },
+    { name: "place", label: "Place / context", type: "text", value: c.place, placeholder: "Institution, programme, or “Self-directed”" },
+    { name: "desc", label: "Description", type: "textarea", value: c.desc }
+  ];
+}
+function valsToItem(v, existingId) {
+  return { id: existingId || ("c-" + Date.now()), year: v.year, title: v.title || "Untitled", place: v.place, desc: v.desc };
+}
+async function addItem() {
+  const v = await openModal({ title: "New milestone", intro: "Newest entries usually go at the top — but you can reorder by editing the year.", fields: itemFields(), submitLabel: "Add" });
+  if (!v) return;
+  // newest first
+  DataStore.data.cv = DataStore.data.cv || [];
+  DataStore.data.cv.unshift(valsToItem(v));
+  DataStore.persistLocal();
+  render(); toast("Milestone added — Export to publish");
+}
+async function editItem(id) {
+  const c = DataStore.find(KEY, id);
+  const v = await openModal({ title: "Edit milestone", fields: itemFields(c), submitLabel: "Save changes" });
+  if (!v) return;
+  DataStore.upsert(KEY, valsToItem(v, id));
+  render(); toast("Saved locally — Export to publish");
+}
+function delItem(id) {
+  const c = DataStore.find(KEY, id);
+  if (confirm(`Delete “${c.title}”?`)) { DataStore.remove(KEY, id); render(); toast("Deleted locally"); }
+}
+async function setPdf() {
+  const v = await openModal({
+    title: "CV — PDF version",
+    intro: "Paste a link to a hosted PDF, or upload one (kept in your browser until you Export, then commit content.json to publish).",
+    fields: [{ name: "cvPdf", label: "PDF file or URL", type: "pdf", value: DataStore.data.cvPdf }],
+    submitLabel: "Save"
+  });
+  if (!v) return;
+  DataStore.setField("cvPdf", v.cvPdf);
+  render(); toast("CV PDF saved — Export to publish");
+}
+
+window.PageAdmin = { addLabel: "Milestone", add: addItem };
+window.addEventListener("edit:on", renderActions);
+window.addEventListener("edit:off", renderActions);
+
+boot(() => { render(); });
+</script>
+</body>
+</html>

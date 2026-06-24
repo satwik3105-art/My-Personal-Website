@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projects — Satwik Mahapatra</title>
+<meta name="description" content="Research projects and tools by Satwik Mahapatra.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%234A2C7A'/%3E%3Ccircle cx='12' cy='12' r='3.6' fill='%23C24E78'/%3E%3C/svg%3E">
+</head>
+<body>
+<header id="site-nav"></header>
+<main>
+  <section class="section" style="padding-bottom:2rem">
+    <div class="wrap">
+      <span class="eyebrow reveal">Fig. 03 — Selected work</span>
+      <h1 class="reveal d1" style="margin:.6rem 0">Projects</h1>
+      <p class="lead reveal d1" style="max-width:54ch">Things I've built and analysed — from transcriptomics pipelines to teaching tools. Click any title for the full write-up.</p>
+    </div>
+  </section>
+  <section class="section" style="padding-top:0">
+    <div class="wrap">
+      <div class="toolbar reveal">
+        <label class="search">
+          <span class="s-ico"></span>
+          <input type="search" id="search" placeholder="Search projects, tags, keywords…" aria-label="Search projects">
+        </label>
+        <span class="result-count" id="count"></span>
+      </div>
+      <div class="filter-chips reveal" id="chips" style="margin-bottom:1.6rem"></div>
+      <div class="grid-cards" id="grid"></div>
+      <div class="empty-state" id="empty" style="display:none"></div>
+    </div>
+  </section>
+</main>
+<footer id="site-footer"></footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+const KEY = "projects", DETAIL = "project.html";
+let activeTag = null, query = "";
+
+function allTags() { const s = new Set(); DataStore.list(KEY).forEach(p => (p.tags||[]).forEach(t => s.add(t))); return [...s].sort(); }
+
+function matches(p) {
+  const q = query.toLowerCase();
+  const hay = (p.title + " " + p.excerpt + " " + (p.tags||[]).join(" ")).toLowerCase();
+  return (!q || hay.includes(q)) && (!activeTag || (p.tags||[]).includes(activeTag));
+}
+
+function render() {
+  const items = DataStore.list(KEY).filter(matches);
+  const grid = document.getElementById("grid"), empty = document.getElementById("empty");
+  document.getElementById("count").textContent = `${items.length} ${items.length === 1 ? "project" : "projects"}`;
+  if (!items.length) {
+    grid.innerHTML = ""; empty.style.display = "block";
+    empty.innerHTML = `${I.search}<p>No projects match “${escapeHTML(query)}”. Try a different term${activeTag?` or clear the “${escapeHTML(activeTag)}” filter`:""}.</p>`;
+  } else {
+    empty.style.display = "none";
+    grid.innerHTML = items.map((p, i) => `
+      <article class="card reveal d${(i%4)+1}" data-id="${p.id}">
+        <div class="card-admin">
+          <button class="icon-btn" data-act="edit" aria-label="Edit">${I.edit}</button>
+          <button class="icon-btn danger" data-act="del" aria-label="Delete">${I.trash}</button>
+        </div>
+        <a class="card-media" href="${DETAIL}?id=${encodeURIComponent(p.id)}">${mediaHTML(p.cover, p.id)}</a>
+        <div class="card-body">
+          <span class="card-date">${fmtDate(p.date)}</span>
+          <h3 class="card-title"><a href="${DETAIL}?id=${encodeURIComponent(p.id)}">${escapeHTML(p.title)}</a></h3>
+          <p class="card-excerpt">${escapeHTML(p.excerpt)}</p>
+          <div class="card-tags">${(p.tags||[]).map(t => `<span class="tag-chip">${escapeHTML(t)}</span>`).join("")}</div>
+          <a class="card-go" href="${DETAIL}?id=${encodeURIComponent(p.id)}">Read project ${I.arrow}</a>
+        </div>
+      </article>`).join("");
+    grid.querySelectorAll(".card").forEach(card => {
+      card.querySelector('[data-act="edit"]').addEventListener("click", () => editItem(card.dataset.id));
+      card.querySelector('[data-act="del"]').addEventListener("click", () => delItem(card.dataset.id));
+    });
+  }
+  observeNewReveals();
+}
+
+function renderChips() {
+  const chips = document.getElementById("chips");
+  const tags = allTags();
+  chips.innerHTML = `<button class="chip ${!activeTag?"active":""}" data-tag="">All</button>` +
+    tags.map(t => `<button class="chip ${activeTag===t?"active":""}" data-tag="${escapeAttr(t)}">${escapeHTML(t)}</button>`).join("");
+  chips.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => { activeTag = c.dataset.tag || null; renderChips(); render(); }));
+}
+
+function itemFields(p = {}) {
+  return [
+    { name: "title", label: "Title", type: "text", value: p.title, placeholder: "Project title" },
+    { name: "date", label: "Date", type: "date", value: p.date },
+    { name: "excerpt", label: "Short summary (shown on card)", type: "textarea", value: p.excerpt },
+    { name: "tags", label: "Tags (comma-separated)", type: "text", value: (p.tags||[]).join(", ") },
+    { name: "cover", label: "Cover image", type: "image", value: p.cover },
+    { name: "body", label: "Full write-up (HTML allowed)", type: "richtext", value: p.body, hint: "Use &lt;h2&gt;, &lt;p&gt;, &lt;blockquote&gt;, &lt;img src&gt;, &lt;a&gt;, &lt;code&gt;. Each project gets its own page." }
+  ];
+}
+function valsToItem(v, existingId) {
+  return {
+    id: existingId || slugify(v.title),
+    title: v.title || "Untitled", date: v.date || new Date().toISOString().slice(0,10),
+    excerpt: v.excerpt, tags: v.tags.split(",").map(s=>s.trim()).filter(Boolean),
+    cover: v.cover, body: v.body
+  };
+}
+async function addItem() {
+  const v = await openModal({ title: "New project", fields: itemFields(), submitLabel: "Add project" });
+  if (!v) return;
+  DataStore.upsert(KEY, valsToItem(v));
+  renderChips(); render(); toast("Project added — Export to publish");
+}
+async function editItem(id) {
+  const p = DataStore.find(KEY, id);
+  const v = await openModal({ title: "Edit project", fields: itemFields(p), submitLabel: "Save changes" });
+  if (!v) return;
+  DataStore.upsert(KEY, valsToItem(v, id));
+  renderChips(); render(); toast("Saved locally — Export to publish");
+}
+function delItem(id) {
+  const p = DataStore.find(KEY, id);
+  if (confirm(`Delete “${p.title}”? You can recover it by discarding edits before exporting.`)) { DataStore.remove(KEY, id); renderChips(); render(); toast("Deleted locally"); }
+}
+
+window.PageAdmin = { addLabel: "Project", add: addItem };
+
+boot(() => {
+  document.querySelector(".s-ico").innerHTML = I.search;
+  document.getElementById("search").addEventListener("input", e => { query = e.target.value; render(); });
+  renderChips(); render();
+});
+</script>
+</body>
+</html>

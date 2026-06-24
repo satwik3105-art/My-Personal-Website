@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Satwik Mahapatra — Oncology · Stem Cells · Neuroscience</title>
+<meta name="description" content="Satwik Mahapatra — BS (Research) student at IISc Bengaluru working in oncology, stem cell biology, and neuroscience.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%234A2C7A'/%3E%3Ccircle cx='12' cy='12' r='3.6' fill='%23C24E78'/%3E%3C/svg%3E">
+</head>
+<body>
+<header id="site-nav"></header>
+
+<main>
+  <!-- HERO / ABOUT -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow reveal">Fig. 01 — About me</span>
+        <h1 class="hero-name reveal d1">Satwik Mahapatra</h1>
+        <p class="hero-role reveal d1" data-editable="about.role"></p>
+        <p class="lead hero-desc reveal d2" data-editable="about.tagline"></p>
+        <p class="hero-desc reveal d2" data-editable="about.bio" data-html="1"></p>
+        <div class="hero-cta reveal d3">
+          <a class="btn btn-primary" href="projects.html">See my work <span class="i-arrow"></span></a>
+          <a class="btn btn-ghost" href="cv.html">CV &amp; achievements</a>
+        </div>
+      </div>
+      <div class="reveal d2">
+        <div class="portrait-wrap">
+          <div class="membrane r1"></div>
+          <div class="membrane r2"></div>
+          <span class="organelle o1"></span><span class="organelle o2"></span><span class="organelle o3"></span>
+          <div class="portrait" id="portrait"></div>
+          <button class="icon-btn" id="portraitEdit" style="position:absolute;bottom:8%;right:8%;display:none;z-index:4" aria-label="Change photo"></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INTERESTS / VIBRANT DOMAINS -->
+  <section class="section" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="titles">
+          <span class="eyebrow reveal">Fig. 02 — Where my curiosity lives</span>
+          <h2 class="reveal d1">Three questions, one cell</h2>
+          <p class="reveal d1">I keep circling the same problem from three sides: how a cell decides to divide, what it chooses to become, and how those decisions add up into something that thinks.</p>
+        </div>
+      </div>
+      <div class="domains" id="domains"></div>
+
+      <div class="reveal" style="margin-top:2.4rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
+        <span class="eyebrow" style="margin-right:.4rem">Also into</span>
+        <span id="interests" style="display:flex;flex-wrap:wrap;gap:.5rem"></span>
+        <button class="icon-btn" id="interestsEdit" style="display:none" aria-label="Edit interests"></button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+function renderAbout() {
+  const a = DataStore.data.about;
+  // name accent: show first name as accent inside the editable span trick — simpler: bind full name editable
+  const nameSpan = document.querySelector('[data-editable="about.name"]');
+  // we keep the displayed name from data; rebuild hero name line
+  document.querySelector('.hero-name').innerHTML =
+    `<span class="accent" data-editable="about.name" style="font-style:normal;color:var(--hema)">${escapeHTML(a.name)}</span>`;
+  document.querySelector('[data-editable="about.role"]').textContent = a.role;
+  document.querySelector('[data-editable="about.tagline"]').textContent = a.tagline;
+  document.querySelector('[data-editable="about.bio"]').innerHTML = a.bio;
+  document.querySelector('.i-arrow').innerHTML = I.arrow;
+  document.getElementById('portrait').innerHTML = portraitHTML(a.portrait);
+
+  document.getElementById('interests').innerHTML =
+    a.interests.map(t => `<span class="tag-chip" style="background:var(--eosin-soft);color:var(--eosin-deep)">${escapeHTML(t)}</span>`).join("");
+
+  document.getElementById('domains').innerHTML = DataStore.data.domains.map((d, i) => `
+    <article class="domain ${d.key} reveal d${i+1}">
+      <span class="tag" data-editable="domains.${i}.tag">${escapeHTML(d.tag)}</span>
+      <h3 data-editable="domains.${i}.title">${escapeHTML(d.title)}</h3>
+      <p data-editable="domains.${i}.blurb">${escapeHTML(d.blurb)}</p>
+    </article>`).join("");
+
+  document.getElementById('portraitEdit').innerHTML = I.edit;
+  document.getElementById('interestsEdit').innerHTML = I.edit;
+}
+
+function wireAboutEditing() {
+  const pe = document.getElementById('portraitEdit');
+  pe.style.display = Edit.on ? 'inline-flex' : 'none';
+  document.getElementById('interestsEdit').style.display = Edit.on ? 'inline-flex' : 'none';
+  if (Edit.on) {
+    document.querySelectorAll('#domains [data-editable]').forEach(el => { el.setAttribute('contenteditable','true'); el.addEventListener('blur', onEditableBlur); });
+  }
+}
+
+document.getElementById('portraitEdit')?.addEventListener('click', async () => {
+  const v = await openModal({ title: "Profile photo", fields: [{ name: "portrait", label: "Photo", type: "image", value: DataStore.data.about.portrait }], submitLabel: "Save photo" });
+  if (v) { DataStore.setField("about.portrait", v.portrait); renderAbout(); wireAboutEditing(); }
+});
+document.getElementById('interestsEdit')?.addEventListener('click', async () => {
+  const v = await openModal({ title: "Edit interests", fields: [{ name: "list", label: "Interests (comma-separated)", type: "text", value: DataStore.data.about.interests.join(", ") }], submitLabel: "Save" });
+  if (v) { DataStore.setField("about.interests", v.list.split(",").map(s => s.trim()).filter(Boolean)); renderAbout(); wireAboutEditing(); }
+});
+
+window.addEventListener("edit:on", wireAboutEditing);
+window.addEventListener("edit:off", () => { renderAbout(); document.getElementById('portraitEdit').style.display='none'; document.getElementById('interestsEdit').style.display='none'; });
+
+boot(() => { renderAbout(); });
+</script>
+</body>
+</html>

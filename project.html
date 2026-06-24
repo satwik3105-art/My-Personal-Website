@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project — Satwik Mahapatra</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%234A2C7A'/%3E%3Ccircle cx='12' cy='12' r='3.6' fill='%23C24E78'/%3E%3C/svg%3E">
+</head>
+<body>
+<header id="site-nav"></header>
+<main>
+  <article class="article-hero">
+    <div class="wrap" style="max-width:860px" id="article"></div>
+  </article>
+</main>
+<footer id="site-footer"></footer>
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+const KEY = "projects", LIST = "projects.html", id = qs("id");
+
+function render() {
+  const p = DataStore.find(KEY, id);
+  const el = document.getElementById("article");
+  if (!p) {
+    el.innerHTML = `<a class="back-link" href="${LIST}">${I.back} All projects</a>
+      <div class="empty-state">${I.search}<p>This project couldn't be found. It may have been renamed.</p><a class="btn btn-ghost" href="${LIST}">Back to projects</a></div>`;
+    return;
+  }
+  document.title = `${p.title} — Satwik Mahapatra`;
+  el.innerHTML = `
+    <a class="back-link reveal" href="${LIST}">${I.back} All projects</a>
+    <div class="article-meta reveal d1" style="margin-top:1.4rem">
+      <span>${fmtDate(p.date)}</span>${(p.tags||[]).map(t=>`<span class="tag-chip">${escapeHTML(t)}</span>`).join("")}
+      <button class="bar-btn editonly icon-btn" id="editMeta" style="display:none" aria-label="Edit details">${I.edit}</button>
+    </div>
+    <h1 class="article-title reveal d1">${escapeHTML(p.title)}</h1>
+    <div class="article-cover-wrap reveal d2">${p.cover ? `<img class="article-cover" src="${escapeAttr(p.cover)}" alt="">` : `<div class="article-cover">${placeholderSVG(p.id, 900, 380)}</div>`}</div>
+    <div class="article-body reveal d2">${p.body || "<p>No write-up yet.</p>"}</div>`;
+
+  const titleEl = el.querySelector(".article-title"), bodyEl = el.querySelector(".article-body");
+
+  function bindEditing() {
+    const ed = Edit.on;
+    document.getElementById("editMeta").style.display = ed ? "inline-flex" : "none";
+    [titleEl, bodyEl].forEach(x => ed ? x.setAttribute("contenteditable","true") : x.removeAttribute("contenteditable"));
+  }
+  titleEl.addEventListener("blur", () => { DataStore.upsert(KEY, { ...DataStore.find(KEY,id), title: titleEl.textContent.trim() }); toast("Saved locally"); });
+  bodyEl.addEventListener("blur", () => { DataStore.upsert(KEY, { ...DataStore.find(KEY,id), body: bodyEl.innerHTML }); toast("Saved locally"); });
+  document.getElementById("editMeta").addEventListener("click", async () => {
+    const cur = DataStore.find(KEY, id);
+    const v = await openModal({ title: "Edit project details", fields: [
+      { name: "date", label: "Date", type: "date", value: cur.date },
+      { name: "tags", label: "Tags (comma-separated)", type: "text", value: (cur.tags||[]).join(", ") },
+      { name: "cover", label: "Cover image", type: "image", value: cur.cover }
+    ], submitLabel: "Save" });
+    if (!v) return;
+    DataStore.upsert(KEY, { ...cur, date: v.date, tags: v.tags.split(",").map(s=>s.trim()).filter(Boolean), cover: v.cover });
+    render(); toast("Saved locally — Export to publish");
+  });
+  window.addEventListener("edit:on", bindEditing); window.addEventListener("edit:off", bindEditing);
+  bindEditing(); observeNewReveals();
+}
+boot(render);
+</script>
+</body>
+</html>
