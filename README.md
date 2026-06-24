@@ -1,115 +1,71 @@
-# Satwik Mahapatra — portfolio & blog
+# Contact-form backend
 
-A clean, animated, multi-page personal site: About, Projects, Blog, CV/Achievements,
-Campus Life, and Contact. Plain HTML/CSS/JS — no build step, no Jekyll — so it drops
-straight onto GitHub Pages. Owner-only in-browser editing is built in.
+A tiny Node/Express server that receives messages from the site's contact form
+and stores them in `data/submissions.json`.
 
-## Pages
+GitHub Pages serves **static files only**, so it cannot run this server. You have
+two ways to make the contact form deliver messages:
 
-| File           | Page                                   |
-|----------------|----------------------------------------|
-| `index.html`   | About / landing (portrait + interests) |
-| `projects.html`| Project gallery (search + tag filters) |
-| `project.html` | A single project (one per project)     |
-| `blog.html`    | Blog index (search + tag filters)      |
-| `post.html`    | A single blog post (one per post)      |
-| `cv.html`      | CV & achievements timeline (+ PDF)     |
-| `campus.html`  | Campus-life photo gallery              |
-| `contact.html` | Contact form + your details            |
+1. **Formspree (no server to run).** Create a free form at
+   [formspree.io](https://formspree.io), copy its endpoint
+   (`https://formspree.io/f/xxxxxxx`), and paste it into the site:
+   Contact page → unlock edit mode → **Edit all contact details** → *Form endpoint*.
+   Export and commit `content.json`. Done.
 
-Each project and post gets its **own page** via `project.html?id=…` / `post.html?id=…`,
-generated automatically from the content — including ones you add later. Clicking a
-card's title opens that page (no "read more").
+2. **This backend (self-hosted, messages saved to a file you own).** Follow below.
 
-## Deploy to GitHub Pages
+---
 
-1. Put these files at the **root** of your repo (e.g. `satwik3105-art.github.io`).
-2. In the repo: **Settings → Pages → Build and deployment → Deploy from a branch**,
-   branch `main`, folder `/ (root)`. Save.
-3. Visit `https://<username>.github.io/`.
-
-The `.nojekyll` file tells Pages to serve the files as-is.
-
-> Open the site through a web server (GitHub Pages, or `python3 -m http.server`
-> locally), not by double-clicking the HTML. Browsers block `fetch()` on the
-> `file://` protocol, which the content loader uses. (There's a built-in fallback so
-> it still renders, but local edits/exports behave best over `http://`.)
-
-## Editing the site (owner only)
-
-1. Click the **lock button** (bottom-right). Enter the passphrase.
-2. **Default passphrase:** `satwik-iisc` — change it (see below) before publishing.
-3. Edit mode lets you:
-   - Click most text to edit it in place.
-   - Add / edit / delete projects, posts, CV milestones, and campus photos.
-   - Set images and the PDF version of your CV (paste a URL or upload).
-   - Fill in your contact details and the form endpoint.
-4. Changes save **locally in your browser** as you go (nothing is public yet).
-5. Click **Export** → downloads `content.json`.
-6. Replace `data/content.json` in the repo with that file and commit.
-   Your changes are now live for everyone.
-
-`Discard` reverts unsaved local edits; `Exit` leaves edit mode.
-
-### Why publishing needs a commit (the honest version)
-
-This is a **static** site. Three things follow from that, and they were designed
-around rather than faked:
-
-- **"Owner-only editing."** There's no server to enforce logins, so the passphrase
-  is a convenience gate, not real security — a determined person could read the page
-  source. The *real* protection is that **only you can commit to the repo**, so only
-  changes you export and push ever become public. Treat the passphrase as a deterrent.
-- **A real backend for the contact form** can't run on GitHub Pages. Use Formspree,
-  or host the included `backend/` folder elsewhere. See `backend/README.md`. Without
-  either, the form falls back to opening the visitor's email client (and keeps a local
-  copy in their browser).
-- **"A separate file per post"** isn't literally generated — static hosting can't write
-  new files. Instead every post/project is its own *page* via `?id=…`, which behaves
-  exactly like a separate page and works for new entries automatically.
-
-## Change the edit passphrase
-
-The site stores only a SHA-256 **hash** of the passphrase, never the passphrase itself.
-Generate a new hash and paste it into `js/app.js`:
+## Run locally
 
 ```bash
-# macOS / Linux
-printf '%s' 'your-new-passphrase' | shasum -a 256
+cd backend
+npm install
+npm start
 ```
 
-Copy the 64-character hash and set it in `js/app.js`:
+You'll see `Contact backend listening on http://localhost:4000`.
 
-```js
-const EDIT_HASH = "paste-the-new-hash-here";
+Then point the site at it: Contact page → edit mode → **Edit all contact details**
+→ *Form endpoint* = `http://localhost:4000/api/contact`. (For local testing, open the
+site with a local web server too, not the `file://` protocol, so the browser allows
+the request.)
+
+## Configuration (environment variables)
+
+| Variable         | Default | Purpose                                                        |
+|------------------|---------|----------------------------------------------------------------|
+| `PORT`           | `4000`  | Port to listen on.                                             |
+| `ALLOWED_ORIGIN` | `*`     | Comma-separated allowed origins for CORS. In production set this to your site, e.g. `https://satwik3105-art.github.io`. |
+| `ADMIN_TOKEN`    | _unset_ | Secret needed to read messages back via `/api/submissions`. Until set, that route is disabled. |
+
+Example:
+
+```bash
+ALLOWED_ORIGIN="https://satwik3105-art.github.io" ADMIN_TOKEN="choose-a-long-secret" npm start
 ```
 
-Commit the change.
+## Endpoints
 
-## Contact form
+- `POST /api/contact` — body `{ name, email, message }`. Appends to `data/submissions.json`.
+- `GET  /api/submissions?token=YOUR_ADMIN_TOKEN` — returns all stored messages (only if `ADMIN_TOKEN` is set).
+- `GET  /api/health` — quick liveness check.
 
-See `backend/README.md` for the two options (Formspree, or the bundled Node server)
-and how to wire the endpoint in.
+## Reading your messages
 
-## Customising
-
-- **Content** lives in `data/content.json` (and a matching seed in `js/data.js`).
-- **Look & feel** (the hematoxylin-&-eosin palette, fonts, spacing) lives in
-  `css/style.css` under `:root`.
-- **Behaviour** (editing, rendering, the cell cursor) lives in `js/app.js`.
-
-## Project structure
-
+```bash
+curl "http://localhost:4000/api/submissions?token=YOUR_ADMIN_TOKEN"
 ```
-.
-├── index.html  projects.html  project.html
-├── blog.html   post.html      cv.html
-├── campus.html contact.html
-├── css/style.css
-├── js/data.js  js/app.js
-├── data/content.json        ← published content (commit to publish edits)
-├── backend/                 ← optional self-hosted contact server
-│   ├── server.js  package.json  README.md
-│   └── data/submissions.json
-└── .nojekyll
-```
+
+…or just open `backend/data/submissions.json`.
+
+## Deploying
+
+Any Node host works (Render, Railway, Fly.io, a small VPS). Deploy this `backend/`
+folder, set the environment variables above, and use the deployed URL
+(`https://your-app.onrender.com/api/contact`) as the form endpoint on the site.
+
+> **Note on persistence:** some free hosts use an ephemeral filesystem, so
+> `submissions.json` can reset on redeploy/restart. For durable storage, mount a
+> persistent volume or swap the file for a database. For low volume, Formspree
+> (option 1) is the simplest reliable choice.
